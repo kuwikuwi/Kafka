@@ -3,8 +3,15 @@ package com.example.kafkatest.config;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/kafka")
@@ -14,11 +21,25 @@ public class KafkaController {
 
     private final KafkaMessageService kafkaMessageService;
 
-    @PostMapping("/send")
-    public ResponseEntity<String> sendMessage(@RequestBody String message) {
+    @PostMapping(value = "/send", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<String> sendMessage(@RequestParam("file") MultipartFile file) {
         try {
-            kafkaMessageService.sendMessage(message);
-            return ResponseEntity.ok("Message sent successfully");
+            if (file != null && !file.isEmpty()) {
+                // Get the original filename
+                String originalFilename = file.getOriginalFilename();
+
+                // Read the file content
+                String content = new BufferedReader(
+                        new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8))
+                        .lines()
+                        .collect(Collectors.joining("\n"));
+
+                // Send the message with the original filename as the key
+                kafkaMessageService.sendMessageWithKey(originalFilename, content);
+
+                return ResponseEntity.ok("File sent successfully with name: " + originalFilename);
+            }
+            return ResponseEntity.badRequest().body("File content is required");
         } catch (Exception e) {
             log.error("Failed to send message: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -26,12 +47,32 @@ public class KafkaController {
         }
     }
 
-    @PostMapping("/send/{key}")
+    @PostMapping(value = "/send/{key}", consumes = {MediaType.TEXT_PLAIN_VALUE,
+            MediaType.APPLICATION_JSON_VALUE,
+            MediaType.MULTIPART_FORM_DATA_VALUE})
     public ResponseEntity<String> sendMessageWithKey(
             @PathVariable String key,
-            @RequestBody String message) {
+            @RequestParam(value = "file", required = false) MultipartFile file,
+            @RequestBody(required = false) String message) {
         try {
-            kafkaMessageService.sendMessageWithKey(key, message);
+            String content;
+
+            // Handle file upload if present
+            if (file != null && !file.isEmpty()) {
+                // Read content from the uploaded file
+                content = new BufferedReader(
+                        new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8))
+                        .lines()
+                        .collect(Collectors.joining("\n"));
+            } else if (message != null && !message.isEmpty()) {
+                // Use the direct message content
+                content = message;
+            } else {
+                return ResponseEntity.badRequest()
+                        .body("Either file or message content is required");
+            }
+
+            kafkaMessageService.sendMessageWithKey(key, content);
             return ResponseEntity.ok("Message sent successfully with key: " + key);
         } catch (Exception e) {
             log.error("Failed to send message with key {}: {}", key, e.getMessage());
