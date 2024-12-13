@@ -16,8 +16,17 @@ public class KafkaProducerConfig {
     @Value("${spring.kafka.bootstrap-servers}")
     private String bootstrapServers;
 
+    @Value("${spring.kafka.producer.max-request-size}")
+    private int maxRequestSize;
+
+    @Value("${spring.kafka.producer.buffer-memory}")
+    private int bufferMemory;
+
+
     public Map<String, Object> prodcerConfig(){
         Map<String,Object> props = new HashMap<>();
+        props.put(ProducerConfig.MAX_REQUEST_SIZE_CONFIG, maxRequestSize);  // 15MB
+        props.put(ProducerConfig.BUFFER_MEMORY_CONFIG, bufferMemory);
         props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
         props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
         props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer.class);

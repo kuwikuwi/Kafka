@@ -2,6 +2,7 @@ package com.example.kafkatest.config;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -11,6 +12,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @RestController
@@ -21,11 +23,15 @@ public class KafkaController {
 
     private final KafkaMessageService kafkaMessageService;
 
+    // properties에서 파라미터 이름을 가져옵니다
+    @Value("${producer.file.param}")
+    private String fileParam;
     @PostMapping(value = "/send", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<String> sendMessage(@RequestParam("file") MultipartFile file) {
+    public ResponseEntity<String> sendMessage(@RequestParam Map<String, MultipartFile> files) {
         try {
+            MultipartFile file = files.get(fileParam);
             if (file != null && !file.isEmpty()) {
-                // Get the original filename
+                // 파일 원본 이름 가져오기
                 String originalFilename = file.getOriginalFilename();
 
                 // Read the file content
@@ -52,7 +58,7 @@ public class KafkaController {
             MediaType.MULTIPART_FORM_DATA_VALUE})
     public ResponseEntity<String> sendMessageWithKey(
             @PathVariable String key,
-            @RequestParam(value = "file", required = false) MultipartFile file,
+            @RequestParam(value = "#{${producer.file.param}}", required = false) MultipartFile file,
             @RequestBody(required = false) String message) {
         try {
             String content;
